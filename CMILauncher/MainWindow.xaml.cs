@@ -44,6 +44,10 @@ namespace CMILauncher
             Debug.WriteLine("=== STARTING CMI LAUNCHER ===");
             InitializeComponent();
             Debug.WriteLine("InitializeComponent completed");
+            
+            // Adjust window size based on screen resolution
+            AdjustWindowSize();
+            
             StartWelcomeAnimation();
             Debug.WriteLine("StartWelcomeAnimation completed");
             InitializeWebView();
@@ -52,6 +56,42 @@ namespace CMILauncher
             this.Focusable = true;
             this.Focus();
             Debug.WriteLine("=== CMI LAUNCHER INITIALIZATION COMPLETED ===");
+        }
+
+        private void AdjustWindowSize()
+        {
+            // Get the working area of the primary screen (excluding taskbar)
+            var workingArea = SystemParameters.WorkArea;
+            
+            // Set maximum window size to 90% of screen height/width to ensure it fits
+            double maxHeight = workingArea.Height * 0.9;
+            double maxWidth = workingArea.Width * 0.9;
+            
+            // If desired height (800) is larger than max, reduce it
+            if (this.Height > maxHeight)
+            {
+                this.Height = maxHeight;
+            }
+            
+            // If desired width (800) is larger than max, reduce it
+            if (this.Width > maxWidth)
+            {
+                this.Width = maxWidth;
+            }
+            
+            // Update MinHeight/MinWidth if they exceed screen size
+            if (this.MinHeight > maxHeight)
+            {
+                this.MinHeight = Math.Min(600, maxHeight);
+            }
+            
+            if (this.MinWidth > maxWidth)
+            {
+                this.MinWidth = Math.Min(600, maxWidth);
+            }
+            
+            Debug.WriteLine($"Screen working area: {workingArea.Width}x{workingArea.Height}");
+            Debug.WriteLine($"Window size adjusted to: {this.Width}x{this.Height}");
         }
 
         private string? FindWebView2Runtime()
