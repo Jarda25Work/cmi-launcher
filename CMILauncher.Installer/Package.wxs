@@ -5,7 +5,7 @@
 
   <Package Name="CMI Launcher"
            Manufacturer="Ceske metrologicke institut"
-           Version="1.0.0.3"
+           Version="1.0.0.4"
            UpgradeCode="A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D"
            InstallerVersion="500"
            Codepage="1250"

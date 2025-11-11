@@ -34,15 +34,12 @@
                     MaxWidth="600">
                 <StackPanel>
                     <!-- Logo/Ikona -->
-                    <Grid Width="80" Height="80" Margin="0,0,0,24" HorizontalAlignment="Center">
-                        <Ellipse Fill="#2196F3" />
-                        <TextBlock Text="ČMI" 
-                                   FontSize="22" 
-                                   FontWeight="Bold" 
-                                   Foreground="White" 
-                                   HorizontalAlignment="Center" 
-                                   VerticalAlignment="Center"/>
-                    </Grid>
+                    <Image Source="Resources/icon.ico" 
+                           Width="80" 
+                           Height="80" 
+                           Margin="0,0,0,24" 
+                           HorizontalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
                     
                     <!-- Název aplikace -->
                     <TextBlock Text="ČMI Launcher"
