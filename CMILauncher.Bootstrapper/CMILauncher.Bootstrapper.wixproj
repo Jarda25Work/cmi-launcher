@@ -1,0 +1,20 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputType>Bundle</OutputType>
+    <Platform>x64</Platform>
+    <OutputName>CMILauncherBootstrapper</OutputName>
+    <WixVersion>5.0.2</WixVersion>
+    <RestoreSources>$(RestoreSources);$(MSBuildThisFileDirectory)packages</RestoreSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Bal.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <WixExtension Include="WixToolset.Bal.wixext" />
+    <WixExtension Include="WixToolset.Util.wixext" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CMILauncher.Installer\CMILauncher.Installer.wixproj" />
+  </ItemGroup>
+</Project>

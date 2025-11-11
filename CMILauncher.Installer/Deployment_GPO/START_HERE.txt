@@ -1,0 +1,106 @@
+===============================================================================
+   CMI LAUNCHER - GPO DISTRIBUCE PRO IT ADMINISTRÁTORY
+===============================================================================
+
+RYCHLÝ NÁVOD PRO GPO NASAZENÍ:
+------------------------------
+
+1. Zkopírujte obsah této složky na síťovou složku:
+   Příklad: \\server\NETLOGON\CMILauncher\
+
+2. Nastavte oprávnění:
+   - Domain Computers: Read & Execute
+   - Authenticated Users: Read
+
+3. Vytvořte nové GPO v Group Policy Management Console:
+   - Název: "CMI Launcher - Deploy"
+
+4. Přidejte Startup Script:
+   Computer Configuration → Policies → Windows Settings → Scripts → Startup
+   Script Name: \\server\NETLOGON\CMILauncher\install-with-prerequisites.bat
+
+5. Propojte GPO s OU obsahující cílové počítače
+
+6. TESTUJTE na pilotní skupině před plným nasazením!
+
+
+KOMPLETNÍ NÁVOD:
+----------------
+
+Otevřete soubor: NÁVOD_GPO.md
+
+Obsahuje:
+- Detailní krok za krokem postup
+- Nastavení WMI filtrů pro časování
+- PowerShell skripty pro monitoring
+- Hromadné operace
+- Řešení problémů
+- Best practices
+
+
+OBSAH BALÍČKU:
+--------------
+
+✓ install-with-prerequisites.bat  - Instalační skript pro GPO startup
+✓ CMILauncherSetup.msi            - MSI instalační balíček  
+✓ NÁVOD_GPO.md                    - Kompletní návod pro GPO
+✓ README.txt                      - Rychlý přehled
+
+
+CO SE NAINSTALUJE (automaticky):
+---------------------------------
+
+1. .NET 8 Desktop Runtime (pokud chybí) - ~50 MB
+2. WebView2 Runtime (pokud chybí) - ~120 MB
+3. CMI Launcher - 585 KB
+
+Celkový čas instalace: 3-7 minut
+Vyžaduje: Internet připojení na klientech
+
+
+MONITORING:
+-----------
+
+Zkontrolujte aplikaci GPO:
+> gpresult /r
+
+Zkontrolujte instalaci:
+> Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -eq "CMI Launcher" }
+
+Event log:
+> Get-EventLog -LogName Application -Source "MsiInstaller" -Newest 10
+
+
+POŽADAVKY:
+----------
+
+- Active Directory doména (Windows Server 2012 R2+)
+- Síťová složka dostupná Domain Computers
+- Klientské PC: Windows 10 (64-bit)+
+- Internet na klientských PC
+
+
+DŮLEŽITÉ POZNÁMKY:
+------------------
+
+⚠️ TESTUJTE na pilotní skupině před plným nasazením
+⚠️ Zálohujte GPO před změnami
+⚠️ Klienti musí mít přístup k internetu
+⚠️ Instalace běží při startu PC jako SYSTEM
+
+
+PODPORA:
+--------
+
+Technická podpora:
+Email: support@cmi.cz
+Web:   https://www.cmi.cz
+
+Pro hlášení problémů přiložte:
+- Screenshot chyby
+- Event log
+- Výstup: gpresult /h report.html
+
+===============================================================================
+Verze: 1.0.0 | Listopad 2025 | České metrologické institut
+===============================================================================

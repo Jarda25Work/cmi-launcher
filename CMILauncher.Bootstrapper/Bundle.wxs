@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- WiX 5 Bundle (bootstrapper EXE) pro CMI Launcher + prerequisites -->
+  <Bundle Name="CMI Launcher" Manufacturer="Ceske metrologicke institut" Version="1.0.0.3" UpgradeCode="8F4E9C0C-3D3D-4E23-9C2A-9F4D0C3E7A11" DisableModify="yes">
+
+  <!-- Standardní bootstrapper (Minimal UI) -->
+  <BootstrapperApplicationRef Id="WixStandardBootstrapperApplication.Minimal" />
+
+    <!-- Detekce .NET host verze -->
+    <util:RegistrySearch Id="DotNetSharedHostVersion" Root="HKLM" Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedhost" Value="Version" Variable="DOTNET_HOST_VERSION" />
+    <!-- Detekce WebView2 Evergreen runtime -->
+    <util:RegistrySearch Id="WebView2RuntimeVersion" Root="HKLM" Key="SOFTWARE\Microsoft\EdgeWebView2\Evergreen\Version" Variable="WEBVIEW2_VERSION" />
+
+    <Chain>
+      <!-- .NET 8 Windows Desktop Runtime (pro WPF; detekujeme sharedhost jako indikátor runtime) -->
+      <ExePackage Id="WindowsDesktopRuntime" SourceFile="Prereqs\windowsdesktop-runtime-8.0-x64.exe"
+                  InstallArguments="/install /quiet /norestart"
+                  UninstallArguments="/uninstall /quiet /norestart"
+                  DetectCondition="DOTNET_HOST_VERSION" Vital="yes" Cache="keep" />
+
+  <!-- WebView2 Evergreen (bootstrapper online varianta; pokud chcete offline, nahraďte soubor a cestu) -->
+  <ExePackage Id="WebView2Runtime" SourceFile="Prereqs\MicrosoftEdgeWebView2RuntimeInstallerX64_BOOTSTRAPPER.exe"
+      InstallArguments="/silent /install"
+      UninstallArguments="/silent /uninstall"
+      DetectCondition="WEBVIEW2_VERSION" Vital="yes" Cache="keep" />
+
+      <!-- Hlavní MSI aplikace -->
+      <MsiPackage Id="CMILauncherMsi" SourceFile="..\CMILauncher.Installer\bin\x64\Release\CMILauncherSetup.msi" Vital="yes" />
+    </Chain>
+  </Bundle>
+</Wix>

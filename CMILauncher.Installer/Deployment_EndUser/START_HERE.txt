@@ -1,0 +1,54 @@
+===============================================================================
+   CMI LAUNCHER - INSTALACE PRO KONCOVÉ UŽIVATELE
+===============================================================================
+
+RYCHLÁ INSTALACE:
+-----------------
+
+1. Pravým tlačítkem na soubor: INSTALUJ.bat
+
+2. Vyberte: "Spustit jako správce"
+
+3. Počkejte 2-5 minut
+
+4. Hotovo! Aplikaci najdete v nabídce Start
+
+
+POTŘEBUJETE POMOC?
+------------------
+
+Otevřete soubor: NÁVOD.md
+
+Tam najdete:
+- Detailní návod krok za krokem
+- Řešení častých problémů
+- Kontakt na technickou podporu
+
+
+CO TENTO BALÍČEK OBSAHUJE:
+--------------------------
+
+✓ INSTALUJ.bat              - Instalační skript (KLIKNĚTE SEM!)
+✓ CMILauncherSetup.msi      - MSI balíček (pro pokročilé)
+✓ NÁVOD.md                  - Kompletní návod
+✓ README.txt                - Rychlý přehled
+
+
+POŽADAVKY:
+----------
+
+- Windows 10 (64-bit) nebo novější
+- Připojení k internetu
+- 500 MB volného místa
+- Administrátorská práva při instalaci
+
+
+PODPORA:
+--------
+
+Email: support@cmi.cz
+Web:   https://www.cmi.cz
+
+===============================================================================
+Verze: 1.0.0 | Listopad 2025 | České metrologické institut
+===============================================================================

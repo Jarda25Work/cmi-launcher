@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="CMI Launcher"
+           Manufacturer="Ceske metrologicke institut"
+           Version="1.0.0.3"
+           UpgradeCode="A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D"
+           InstallerVersion="500"
+           Codepage="1250"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="Novejsi verze CMI Launcheru je jiz nainstalovana."
+                  AllowSameVersionUpgrades="yes" />
+
+  <Icon Id="AppIcon" SourceFile="..\CMILauncher\Resources\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://www.cmi.cz" />
+    
+    <ui:WixUI Id="WixUI_Minimal" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <Feature Id="MainApplication" Title="ČMI Launcher" Level="1">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentGroupRef Id="RuntimeFiles" />
+      <ComponentGroupRef Id="LibraryFiles" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ProgramMenuFolder" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CMI Launcher">
+        <Directory Id="APPLICATIONFOLDER" Name="CMILauncher">
+          <Directory Id="RUNTIMESFOLDER" Name="runtimes">
+            <Directory Id="WINX64FOLDER" Name="win-x64">
+              <Directory Id="NATIVEFOLDER" Name="native" />
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="CMI Launcher" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="ApplicationFiles" Directory="APPLICATIONFOLDER">
+      <Component Id="MainExecutable" Bitness="always64">
+        <File Id="CMILauncherExe" 
+              Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\CMILauncher.exe"
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ApplicationDll" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\CMILauncher.dll" />
+      </Component>
+
+      <Component Id="RuntimeConfig" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\CMILauncher.runtimeconfig.json" />
+      </Component>
+
+      <Component Id="DepsJson" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\CMILauncher.deps.json" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="RuntimeFiles" Directory="NATIVEFOLDER">
+      <Component Id="WebView2Loader" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\runtimes\win-x64\native\WebView2Loader.dll" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="LibraryFiles" Directory="APPLICATIONFOLDER">
+      <Component Id="MicrosoftWebWebView2Core" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\Microsoft.Web.WebView2.Core.dll" />
+      </Component>
+
+      <Component Id="MicrosoftWebWebView2Wpf" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\Microsoft.Web.WebView2.Wpf.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="MicrosoftWebWebView2WinForms" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\Microsoft.Web.WebView2.WinForms.dll" />
+      </Component>
+
+      <Component Id="NewtonsoftJson" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\Newtonsoft.Json.dll" />
+      </Component>
+
+      <Component Id="SystemTextEncodingsWeb" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\System.Text.Encodings.Web.dll" />
+      </Component>
+
+      <Component Id="SystemTextJson" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\System.Text.Json.dll" />
+      </Component>
+
+      <Component Id="SystemIOPipelines" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\System.IO.Pipelines.dll" />
+      </Component>
+
+      <Component Id="SystemNetHttpJson" Bitness="always64">
+        <File Source="..\CMILauncher\bin\$(var.Configuration)\net8.0-windows\System.Net.Http.Json.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Bitness="always64">
+      <Shortcut Id="ApplicationStartMenuShortcut"
+                Name="CMI Launcher"
+                Description="Launcher aplikaci pro Ceske metrologie institut"
+                Target="[APPLICATIONFOLDER]CMILauncher.exe"
+                WorkingDirectory="APPLICATIONFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" 
+                    Key="Software\CMI\CMILauncher" 
+                    Name="installed" 
+                    Type="integer" 
+                    Value="1" 
+                    KeyPath="yes" />
+    </Component>
+
+    <Component Id="ProgramMenuFolder" Directory="ApplicationProgramsFolder" Bitness="always64">
+      <RemoveFolder Id="RemoveProgramMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" 
+                    Key="Software\CMI\CMILauncher" 
+                    Name="folder" 
+                    Type="integer" 
+                    Value="1" 
+                    KeyPath="yes" />
+    </Component>
+
+  </Package>
+</Wix>

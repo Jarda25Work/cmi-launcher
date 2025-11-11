@@ -1,0 +1,19 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputName>CMILauncherSetup</OutputName>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <WixVersion>5.0.2</WixVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CMILauncher\CMILauncher.csproj" />
+    <ProjectReference Include="..\CMILauncher.Installer.CustomActions\CMILauncher.Installer.CustomActions.csproj" />
+    <ProjectReference Include="..\CMILauncher.Installer.Prerequisites\CMILauncher.Installer.Prerequisites.csproj" />
+  </ItemGroup>
+</Project>

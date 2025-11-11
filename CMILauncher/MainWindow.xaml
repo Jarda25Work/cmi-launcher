@@ -1,0 +1,232 @@
+<Window x:Class="CMILauncher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="ČMI Launcher" 
+        Height="800" Width="800"
+        WindowStartupLocation="CenterScreen"
+    MinHeight="600" MinWidth="600"
+    PreviewKeyDown="Window_PreviewKeyDown">
+    
+    <Grid>
+        <!-- WebView2 zobrazující celou aplikaci launcher.cmi.cz/app -->
+        <!-- Source je odstraněn - navigace se řídí z kódu po inicializaci CoreWebView2 -->
+        <wv2:WebView2 x:Name="webView" DefaultBackgroundColor="Transparent" />
+
+        <!-- Úvodní informační obrazovka -->
+        <Grid x:Name="WelcomeScreen"
+              Background="White"
+              Visibility="Visible">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <Border Grid.Row="1" 
+                    Background="White" 
+                    Padding="40" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    MaxWidth="600">
+                <StackPanel>
+                    <!-- Logo/Ikona -->
+                    <Grid Width="80" Height="80" Margin="0,0,0,24" HorizontalAlignment="Center">
+                        <Ellipse Fill="#2196F3" />
+                        <TextBlock Text="ČMI" 
+                                   FontSize="22" 
+                                   FontWeight="Bold" 
+                                   Foreground="White" 
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                    
+                    <!-- Název aplikace -->
+                    <TextBlock Text="ČMI Launcher"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="#333"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,16"/>
+                    
+                    <!-- Hlavní informace -->
+                    <TextBlock x:Name="WelcomeMessage"
+                               Text="Připojuji se k aplikačnímu portálu..."
+                               FontSize="16"
+                               Foreground="#666"
+                               TextAlignment="Center"
+                               Margin="0,0,0,24"/>
+                    
+                    <!-- Informační box o certifikátech -->
+                    <Border Background="#E3F2FD" 
+                            BorderBrush="#2196F3" 
+                            BorderThickness="1" 
+                            CornerRadius="4" 
+                            Padding="16" 
+                            Margin="0,0,0,24">
+                        <StackPanel>
+                            <TextBlock Text="💡 Informace o přihlášení"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="#1976D2"
+                                       Margin="0,0,0,8"/>
+                            <TextBlock Text="Při prvním spuštění budete požádáni o zadání PIN kódu k vašemu certifikátu (eObčanka, kvalifikovaný certifikát). Toto je bezpečnostní opatření pro ověření vaší identity."
+                                       FontSize="12"
+                                       Foreground="#424242"
+                                       TextWrapping="Wrap"
+                                       LineHeight="16"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <!-- Progress bar -->
+                    <Grid>
+                        <Rectangle x:Name="ProgressBackground" 
+                                   Height="4" 
+                                   Fill="#E0E0E0" 
+                                   RadiusX="2" 
+                                   RadiusY="2"/>
+                        <Rectangle x:Name="ProgressBar" 
+                                   Height="4" 
+                                   Fill="#2196F3" 
+                                   RadiusX="2" 
+                                   RadiusY="2"
+                                   HorizontalAlignment="Left"
+                                   Width="0"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Overlay pro výpadky připojení -->
+        <Grid x:Name="RetryOverlay"
+              Background="#AA000000"
+              Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="1" Background="#222" Padding="24" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock x:Name="RetryMessage"
+                               Text="Nelze se připojit k serveru. Zkouším to znovu..."
+                               Foreground="White"
+                               FontSize="16"
+                               Margin="0,0,0,12"
+                               TextAlignment="Center"/>
+                    <Button x:Name="RetryButton" Content="Zkusit znovu" Width="160" Click="RetryButton_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+        
+        <!-- Custom Certificate Dialog -->
+        <Grid x:Name="CertificateDialog"
+              Background="#80000000"
+              Visibility="Collapsed">
+            <Border Background="White" 
+                    CornerRadius="10" 
+                    Padding="30" 
+                    MaxWidth="500"
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" Direction="315" ShadowDepth="5" Opacity="0.3"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Icon -->
+                        <Grid Width="50" Height="50" Margin="0,0,15,0">
+                            <Ellipse Fill="#2196F3" />
+                            <TextBlock Text="🔒" 
+                                       FontSize="24" 
+                                       Foreground="White" 
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                        
+                        <!-- Title -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Výběr způsobu přihlášení" 
+                                       FontSize="18" 
+                                       FontWeight="Bold" 
+                                       Foreground="#333"/>
+                            <TextBlock x:Name="CertDialogSubtitle"
+                                       Text="Nalezen komerční certifikát pro přihlášení" 
+                                       FontSize="12" 
+                                       Foreground="#666" 
+                                       Margin="0,3,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Certificate Info -->
+                    <TextBlock x:Name="CertDialogMessage"
+                               Text="Nalezený certifikát: [Certificate Name]"
+                               FontSize="13"
+                               Foreground="#333"
+                               Margin="0,0,0,20"
+                               TextWrapping="Wrap"/>
+                    
+                    <!-- Instructions -->
+                    <TextBlock Text="Chcete pokračovat s certifikátem nebo se přihlásit bez něj?"
+                               FontSize="13"
+                               Foreground="#555"
+                               Margin="0,0,0,20"
+                               TextWrapping="Wrap"/>
+                    
+                    <!-- Buttons -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Use Certificate Button -->
+                        <Button x:Name="UseCertificateButton"
+                                Grid.Column="0"
+                                Content="Použít certifikát"
+                                Background="#2196F3"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Padding="10,8"
+                                BorderThickness="0"
+                                Click="UseCertificateButton_Click"
+                                Style="{DynamicResource {x:Static ToolBar.ButtonStyleKey}}"/>
+                        
+                        <!-- Continue Without Certificate Button -->
+                        <Button x:Name="ContinueWithoutCertButton"
+                                Grid.Column="2"
+                                Content="Bez certifikátu"
+                                Background="#FFC107"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Padding="10,8"
+                                BorderThickness="0"
+                                Click="ContinueWithoutCertButton_Click"
+                                Style="{DynamicResource {x:Static ToolBar.ButtonStyleKey}}"/>
+                        
+                        <!-- Cancel Button -->
+                        <Button x:Name="CancelCertButton"
+                                Grid.Column="4"
+                                Content="Zrušit"
+                                Background="#F44336"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Padding="10,8"
+                                BorderThickness="0"
+                                Click="CancelCertButton_Click"
+                                Style="{DynamicResource {x:Static ToolBar.ButtonStyleKey}}"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
