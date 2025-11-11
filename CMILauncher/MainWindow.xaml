@@ -16,7 +16,8 @@
         <!-- Úvodní informační obrazovka -->
         <Grid x:Name="WelcomeScreen"
               Background="White"
-              Visibility="Visible">
+              Visibility="Visible"
+              Panel.ZIndex="100">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -100,7 +101,8 @@
         <!-- Overlay pro výpadky připojení -->
         <Grid x:Name="RetryOverlay"
               Background="#AA000000"
-              Visibility="Collapsed">
+              Visibility="Collapsed"
+              Panel.ZIndex="500">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -122,7 +124,8 @@
         <!-- Custom Certificate Dialog -->
         <Grid x:Name="CertificateDialog"
               Background="#80000000"
-              Visibility="Collapsed">
+              Visibility="Collapsed"
+              Panel.ZIndex="1000">
             <Border Background="White" 
                     CornerRadius="10" 
                     Padding="30" 

@@ -148,9 +148,17 @@ namespace CMILauncher
                     );
                 }
                 
-                await webView.EnsureCoreWebView2Async(environment);
+                // Přidat timeout pro WebView2 inicializaci (30 sekund)
+                var webViewInitTask = webView.EnsureCoreWebView2Async(environment);
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+                var completedTask = await Task.WhenAny(webViewInitTask, timeoutTask);
                 
-                // Zakázat context menu (pravé tlačítko myši)
+                if (completedTask == timeoutTask)
+                {
+                    throw new TimeoutException("WebView2 initialization timed out after 30 seconds");
+                }
+                
+                await webViewInitTask; // Zajistit, že skutečně dokončíme inicializaci
                 webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 
                 // Povolit DevTools pouze pro programové otevření (blokneme F12)
@@ -257,11 +265,11 @@ namespace CMILauncher
                             }
                         }
 
-                        // Zobrazit JEDNODUCHÝ MessageBox test
+                        // Použít fungující MessageBox s lepším textem
                         var result = Dispatcher.Invoke(() => {
                             var msgResult = MessageBox.Show(
-                                "Byl nalezen klientský certifikát. Chcete ho použít pro přihlášení?",
-                                "Výběr certifikátu",
+                                $"Nalezen klientský certifikát: {commercialCert?.DisplayName ?? "Neznámý"}\n\nChcete ho použít pro přihlášení?\n\n• ANO - Použít certifikát pro ověření\n• NE - Pokračovat bez certifikátu",
+                                "Výběr způsobu přihlášení - ČMI Launcher",
                                 MessageBoxButton.YesNo,
                                 MessageBoxImage.Question
                             );
@@ -873,15 +881,21 @@ WebView2 Runtime Check:
         {
             try
             {
+                Debug.WriteLine($"ShowCertificateDialogSync called with cert: {commercialCert?.DisplayName ?? "null"}, total: {totalCerts}");
+                
                 // Reset certificate dialog TaskCompletionSource
                 certificateDialogTcs = new TaskCompletionSource<CertificateDialogResult>();
                 
                 // Zobrazit custom dialog
+                Debug.WriteLine("Setting CertificateDialog.Visibility = Visible");
                 CertificateDialog.Visibility = Visibility.Visible;
+                Debug.WriteLine($"CertificateDialog.Visibility is now: {CertificateDialog.Visibility}");
+                Debug.WriteLine($"WelcomeScreen.Visibility is: {WelcomeScreen.Visibility}");
                 Debug.WriteLine("Custom certificate dialog shown synchronously");
                 
                 // Počkáme na výsledek synchronně (blokující volání)
                 var result = certificateDialogTcs.Task.GetAwaiter().GetResult();
+                Debug.WriteLine($"Certificate dialog result: {result}");
                 return result;
             }
             catch (Exception ex)
