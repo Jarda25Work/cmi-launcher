@@ -1,6 +1,6 @@
 ; CMI Launcher Inno Setup installer with prerequisites (.NET 8 Windows Desktop Runtime + WebView2)
 #define MyAppName "CMI Launcher"
-#define MyAppVersion "1.0.0.3"
+#define MyAppVersion "1.0.0.4"
 #define MyAppPublisher "Ceske metrologicke institut"
 #define MyMsiFile "CMILauncherSetup.msi"
 #define DotNetInstaller "windowsdesktop-runtime-8.0-x64.exe"

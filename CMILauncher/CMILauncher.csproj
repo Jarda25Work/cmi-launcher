@@ -7,7 +7,8 @@
     <UseWPF>true</UseWPF>
     <AssemblyTitle>ČMI Launcher</AssemblyTitle>
     <AssemblyDescription>Launcher aplikací pro České metrologie institut</AssemblyDescription>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <AssemblyVersion>1.0.0.4</AssemblyVersion>
+    <FileVersion>1.0.0.4</FileVersion>
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
