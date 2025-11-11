@@ -1,8 +1,12 @@
+
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 using System.Threading;
@@ -231,24 +235,68 @@ namespace CMILauncher
                 {
                     try
                     {
+                        // **KRITICKÉ: Ihned nastavit Handled = true aby WebView2 nezobrazoval svůj dialog**
+                        e.Handled = true;
+                        Debug.WriteLine("Certificate request handled - zabráněno WebView2 dialogu");
+                        
                         var certs = e.MutuallyTrustedCertificates;
                         Debug.WriteLine($"Client certificate requested. Found {certs.Count} certificates.");
 
-                        // Pokud nejsou žádné certifikáty, pokračovat bez nich
+                        // **VYLEPŠENO: Automaticky pokračovat bez certifikátu pokud není USB token**
                         if (certs.Count == 0)
                         {
-                            e.Handled = true;
                             e.Cancel = false; // Pokračovat bez certifikátu
-                            Debug.WriteLine("No client certificates available, continuing without certificate.");
+                            Debug.WriteLine("No client certificates available (USB token not inserted) - automatically continuing without certificate.");
                             
                             certificateWorkflowCompleted = true;
-                            Dispatcher.Invoke(() => UpdateWelcomeMessage("Pokračuji bez certifikátu..."));
+                            Dispatcher.Invoke(() => UpdateWelcomeMessage("USB token není vložen - pokračuji bez certifikátu..."));
                             return;
                         }
 
-                        // Najít commercial certifikát
+                        // **VŽDY ZOBRAZIT DIALOG: Nechať užiťateľa rozhodnúť o certifikáte**
+                        bool hasAccessibleCerts = true; // Vždy true - zobrazíme dialog
+                        var accessibleCerts = new List<Microsoft.Web.WebView2.Core.CoreWebView2ClientCertificate>();
+                        
+                        Debug.WriteLine($"Found {certs.Count} certificates in Windows store, will always show dialog for user choice");
+                        
+                        // **JEDNODUCHÉ RIEŠENIE: Pridáme všetky nájdené certifikáty**
+                        foreach (var cert in certs)
+                        {
+                            try
+                            {
+                                var subject = cert.Subject ?? string.Empty;
+                                var name = cert.DisplayName ?? string.Empty;
+                                var kind = cert.Kind;
+                                
+                                Debug.WriteLine($"Adding certificate: {name}");
+                                Debug.WriteLine($"Subject: {subject}");
+                                Debug.WriteLine($"Kind: {kind}");
+                                
+                                // Pridáme každý certifikát - užívateľ si vyberie
+                                accessibleCerts.Add(cert);
+                                Debug.WriteLine($"Certificate {name} added to list");
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"Certificate processing error: {ex.Message}");
+                            }
+                        }
+
+                        // Pokud žádný certifikát není skutečně dostupný, pokračovat bez něj
+                        if (!hasAccessibleCerts || accessibleCerts.Count == 0)
+                        {
+                            e.Cancel = false;
+                            Debug.WriteLine("No accessible certificates found (USB token not available) - automatically continuing without certificate.");
+                            certificateWorkflowCompleted = true;
+                            Dispatcher.Invoke(() => UpdateWelcomeMessage("USB token není dostupný - pokračuji bez certifikátu..."));
+                            return;
+                        }
+                        
+                        Debug.WriteLine($"Found {accessibleCerts.Count} accessible certificates, proceeding with dialog");
+
+                        // **VYLEPŠENO: Najít commercial certifikát pouze z dostupných certifikátů**
                         Microsoft.Web.WebView2.Core.CoreWebView2ClientCertificate? commercialCert = null;
-                        foreach (var c in certs)
+                        foreach (var c in accessibleCerts) // Použít pouze dostupné certifikáty
                         {
                             var subj = c.Subject ?? string.Empty;
                             var iss = c.Issuer ?? string.Empty;
@@ -265,50 +313,148 @@ namespace CMILauncher
                             }
                         }
 
-                        // Použít fungující MessageBox s lepším textem
-                        var result = Dispatcher.Invoke(() => {
-                            var msgResult = MessageBox.Show(
-                                $"Nalezen klientský certifikát: {commercialCert?.DisplayName ?? "Neznámý"}\n\nChcete ho použít pro přihlášení?\n\n• ANO - Použít certifikát pro ověření\n• NE - Pokračovat bez certifikátu",
-                                "Výběr způsobu přihlášení - ČMI Launcher",
-                                MessageBoxButton.YesNo,
-                                MessageBoxImage.Question
-                            );
-                            return msgResult == MessageBoxResult.Yes ? CertificateDialogResult.UseCertificate : CertificateDialogResult.ContinueWithoutCertificate;
-                        });
-                        
-                        e.Handled = true;
-                        
-                        switch (result)
+                        // SPRÁVNÝ ASYNCHRONNÍ PATTERN - bez Task.Run()
+                        try 
                         {
-                            case CertificateDialogResult.UseCertificate:
-                                if (commercialCert != null)
+                            Debug.WriteLine("Starting async certificate dialog...");
+                            
+                            // **KLÍČOVÉ ŘEŠENÍ: Skrýt WebView2 před zobrazením dialogu**
+                            if (webView != null)
+                            {
+                                webView.Visibility = Visibility.Collapsed;
+                                Debug.WriteLine("WebView2 skryto pro certificate dialog");
+                            }
+                            
+                            // Nastavit informace o certifikátu
+                            if (commercialCert != null)
+                            {
+                                CertDialogMessage.Text = $"Nalezený certifikát: {commercialCert.DisplayName}";
+                                CertDialogSubtitle.Text = $"Komerční certifikát pro přihlášení ({commercialCert.Subject})";
+                            }
+                            else
+                            {
+                                CertDialogMessage.Text = $"Nalezeno {accessibleCerts.Count} dostupných certifikátů";
+                                CertDialogSubtitle.Text = "Žádný komerční certifikát nenalezen";
+                            }
+                            
+                            // Reset TaskCompletionSource
+                            certificateDialogTcs = new TaskCompletionSource<CertificateDialogResult>();
+                            
+                            // DŮLEŽITÉ: Skrýt WelcomeScreen aby byl vidět dialog!
+                            WelcomeScreen.Visibility = Visibility.Collapsed;
+                            
+                            // Show dialog immediately
+                            CertificateDialog.Visibility = Visibility.Visible;
+                            Debug.WriteLine("WPF dialog shown, WelcomeScreen hidden, using async pattern");
+                            
+                            // Create deferral to handle async response ON UI THREAD
+                            var deferral = e.GetDeferral();
+                            
+                            // Handle dialog result asynchronously but complete on UI thread
+                            _ = Task.Run(async () => 
+                            {
+                                try 
                                 {
-                                    e.SelectedCertificate = commercialCert;
-                                    e.Cancel = false;
-                                    Debug.WriteLine($"User selected certificate: {commercialCert.DisplayName}");
+                                    var dialogResult = await certificateDialogTcs.Task;
+                                    Debug.WriteLine($"Async dialog result: {dialogResult}");
+                                    
+                                    // Use Dispatcher.BeginInvoke to avoid blocking
+                                    Dispatcher.BeginInvoke(() => {
+                                        try
+                                        {
+                                            switch (dialogResult)
+                                            {
+                                                case CertificateDialogResult.UseCertificate:
+                                                    if (commercialCert != null)
+                                                    {
+                                                        e.SelectedCertificate = commercialCert;
+                                                        e.Cancel = false;
+                                                        Debug.WriteLine($"Selected certificate: {commercialCert.DisplayName}");
+                                                    }
+                                                    else if (accessibleCerts.Count > 0)
+                                                    {
+                                                        e.SelectedCertificate = accessibleCerts[0];
+                                                        e.Cancel = false;
+                                                        Debug.WriteLine($"Using fallback certificate: {accessibleCerts[0].DisplayName}");
+                                                    }
+                                                    else
+                                                    {
+                                                        e.Cancel = false;
+                                                        Debug.WriteLine("No accessible certificates available, continuing without certificate");
+                                                    }
+                                                    break;
+                                                    
+                                                case CertificateDialogResult.ContinueWithoutCertificate:
+                                                    e.Cancel = false;
+                                                    Debug.WriteLine("Continue without certificate");
+                                                    break;
+                                                    
+                                                case CertificateDialogResult.Cancel:
+                                                    e.Cancel = true;
+                                                    Debug.WriteLine("Certificate selection cancelled");
+                                                    break;
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Debug.WriteLine($"Deferral completion error: {ex.Message}");
+                                            e.Cancel = false; // Safe fallback
+                                        }
+                                        finally
+                                        {
+                                            try
+                                            {
+                                                // **KRITICKÉ: Obnovit WebView2 po dokončení certificate dialogu**
+                                                if (webView != null)
+                                                {
+                                                    webView.Visibility = Visibility.Visible;
+                                                    Debug.WriteLine("WebView2 obnoven po certificate dialogu");
+                                                }
+                                                
+                                                deferral.Complete();
+                                                Debug.WriteLine("Deferral completed successfully");
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Debug.WriteLine($"Deferral.Complete() error: {ex.Message}");
+                                            }
+                                        }
+                                    });
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    // Fallback na první dostupný
-                                    e.SelectedCertificate = certs[0];
-                                    e.Cancel = false;
-                                    Debug.WriteLine($"Using fallback certificate: {certs[0].DisplayName}");
+                                    Debug.WriteLine($"Task.Run dialog error: {ex.Message}");
+                                    Dispatcher.BeginInvoke(() => {
+                                        // **KRITICKÉ: Obnovit WebView2 i při chybě**
+                                        if (webView != null)
+                                        {
+                                            webView.Visibility = Visibility.Visible;
+                                            Debug.WriteLine("WebView2 obnoven při chybě certificate dialogu");
+                                        }
+                                        
+                                        e.Cancel = false; // Continue without cert
+                                        deferral.Complete();
+                                    });
                                 }
-                                break;
-                                
-                            case CertificateDialogResult.ContinueWithoutCertificate:
-                                e.Cancel = false; // Pokračovat bez certifikátu
-                                Debug.WriteLine("User chose to continue without certificate.");
-                                break;
-                                
-                            case CertificateDialogResult.Cancel:
-                                e.Cancel = true; // Zrušit načítání
-                                Debug.WriteLine("User cancelled certificate selection.");
-                                break;
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Dialog setup error: {ex.Message}");
+                            // **VYLEPŠENO: Fallback používá dostupné certifikáty**
+                            if (commercialCert != null)
+                            {
+                                e.SelectedCertificate = commercialCert;
+                            }
+                            else if (accessibleCerts.Count > 0)
+                            {
+                                e.SelectedCertificate = accessibleCerts[0];
+                            }
+                            e.Cancel = false;
                         }
                         
                         certificateWorkflowCompleted = true;
-                        Debug.WriteLine($"Certificate workflow completed with result: {result}");
+                        Debug.WriteLine("Certificate workflow started with async WPF dialog");
                     }
                     catch (Exception ex)
                     {
@@ -883,17 +1029,35 @@ WebView2 Runtime Check:
             {
                 Debug.WriteLine($"ShowCertificateDialogSync called with cert: {commercialCert?.DisplayName ?? "null"}, total: {totalCerts}");
                 
-                // Reset certificate dialog TaskCompletionSource
+                // KRITICKÉ: Nastavit informace PŘED zobrazením
+                if (commercialCert != null)
+                {
+                    CertDialogMessage.Text = $"Nalezený certifikát: {commercialCert.DisplayName}";
+                    CertDialogSubtitle.Text = $"Komerční certifikát ({commercialCert.Subject})";
+                }
+                else
+                {
+                    CertDialogMessage.Text = $"Nalezeno {totalCerts} certifikátů v úložišti";
+                    CertDialogSubtitle.Text = "Žádný komerční certifikát nenalezen";
+                }
+                
+                // Reset TaskCompletionSource
                 certificateDialogTcs = new TaskCompletionSource<CertificateDialogResult>();
                 
-                // Zobrazit custom dialog
-                Debug.WriteLine("Setting CertificateDialog.Visibility = Visible");
-                CertificateDialog.Visibility = Visibility.Visible;
-                Debug.WriteLine($"CertificateDialog.Visibility is now: {CertificateDialog.Visibility}");
-                Debug.WriteLine($"WelcomeScreen.Visibility is: {WelcomeScreen.Visibility}");
-                Debug.WriteLine("Custom certificate dialog shown synchronously");
+                // KRITICKÉ: Zajistit že dialog je nad welcome screen
+                Debug.WriteLine($"Before: CertificateDialog.Visibility = {CertificateDialog.Visibility}");
+                Debug.WriteLine($"Before: WelcomeScreen.Visibility = {WelcomeScreen.Visibility}");
                 
-                // Počkáme na výsledek synchronně (blokující volání)
+                // Zobrazit dialog s highest priority
+                CertificateDialog.Visibility = Visibility.Visible;
+                
+                // Force refresh UI
+                this.UpdateLayout();
+                
+                Debug.WriteLine($"After: CertificateDialog.Visibility = {CertificateDialog.Visibility}");
+                Debug.WriteLine("Custom certificate dialog shown with Z-Index 1000");
+                
+                // Počkáme na výsledek synchronně
                 var result = certificateDialogTcs.Task.GetAwaiter().GetResult();
                 Debug.WriteLine($"Certificate dialog result: {result}");
                 return result;
@@ -909,29 +1073,73 @@ WebView2 Runtime Check:
         // Certificate Dialog Event Handlers
         private void UseCertificateButton_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("User chose to use certificate");
-            CertificateDialog.Visibility = Visibility.Collapsed;
-            UpdateWelcomeMessage("Přihlašuji s certifikátem...");
-            HideWelcomeScreenAsync(1); // Skrýt welcome screen po 1 sekundě
-            certificateDialogTcs?.SetResult(CertificateDialogResult.UseCertificate);
+            Console.WriteLine("UseCertificateButton_Click triggered");
+            Debug.WriteLine("UseCertificateButton_Click triggered");
+            ProcessCertificateChoice(CertificateDialogResult.UseCertificate);
+        }
+        
+        private void UseCertificateButton_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Debug.WriteLine("UseCertificateButton_MouseDown triggered");
+            ProcessCertificateChoice(CertificateDialogResult.UseCertificate);
+            e.Handled = true;
         }
         
         private void ContinueWithoutCertButton_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("User chose to continue without certificate");
-            CertificateDialog.Visibility = Visibility.Collapsed;
-            UpdateWelcomeMessage("Přihlašuji bez certifikátu...");
-            HideWelcomeScreenAsync(1); // Skrýt welcome screen po 1 sekundě
-            certificateDialogTcs?.SetResult(CertificateDialogResult.ContinueWithoutCertificate);
+            Console.WriteLine("ContinueWithoutCertButton_Click triggered");
+            Debug.WriteLine("ContinueWithoutCertButton_Click triggered");
+            ProcessCertificateChoice(CertificateDialogResult.ContinueWithoutCertificate);
+        }
+        
+        private void ContinueWithoutCertButton_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Debug.WriteLine("ContinueWithoutCertButton_MouseDown triggered");
+            ProcessCertificateChoice(CertificateDialogResult.ContinueWithoutCertificate);
+            e.Handled = true;
         }
         
         private void CancelCertButton_Click(object sender, RoutedEventArgs e)
         {
-            Debug.WriteLine("User chose to cancel");
+            Console.WriteLine("CancelCertButton_Click triggered");
+            Debug.WriteLine("CancelCertButton_Click triggered");
+            ProcessCertificateChoice(CertificateDialogResult.Cancel);
+        }
+        
+        private void CancelCertButton_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            Debug.WriteLine("CancelCertButton_MouseDown triggered");
+            ProcessCertificateChoice(CertificateDialogResult.Cancel);
+            e.Handled = true;
+        }
+        
+        private void ProcessCertificateChoice(CertificateDialogResult result)
+        {
+            Debug.WriteLine($"ProcessCertificateChoice: {result}");
             CertificateDialog.Visibility = Visibility.Collapsed;
-            UpdateWelcomeMessage("Ruším připojení...");
-            // Neposkytujeme žádný delay - okamžité zrušení
-            certificateDialogTcs?.SetResult(CertificateDialogResult.Cancel);
+            
+            switch (result)
+            {
+                case CertificateDialogResult.UseCertificate:
+                    // Zobrazit welcome screen s informací o přihlašování
+                    WelcomeScreen.Visibility = Visibility.Visible;
+                    UpdateWelcomeMessage("Přihlašuji s certifikátem...");
+                    // Welcome screen se skryje automaticky po načtení webu v WebView_NavigationCompleted
+                    break;
+                case CertificateDialogResult.ContinueWithoutCertificate:
+                    // Zobrazit welcome screen s informací o přihlašování
+                    WelcomeScreen.Visibility = Visibility.Visible;
+                    UpdateWelcomeMessage("Přihlašuji bez certifikátu...");
+                    // Welcome screen se skryje automaticky po načtení webu v WebView_NavigationCompleted
+                    break;
+                case CertificateDialogResult.Cancel:
+                    UpdateWelcomeMessage("Ruším připojení...");
+                    // Ukončit aplikaci po kliknutí na Zrušit
+                    Application.Current.Shutdown();
+                    break;
+            }
+            
+            certificateDialogTcs?.SetResult(result);
         }
     }
 }
