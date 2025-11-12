@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -38,6 +39,11 @@ namespace CMILauncher
         
         // Certificate dialog result tracking
         private TaskCompletionSource<CertificateDialogResult>? certificateDialogTcs = null;
+        
+        // Network change handling
+        private int networkChangeRetries = 0;
+        private const int MaxNetworkChangeRetries = 3;
+        private System.Threading.Timer? networkRetryTimer;
         
         public MainWindow()
         {
@@ -669,10 +675,17 @@ WebView2 Runtime Check:
             {
                 Debug.WriteLine($"Navigation failed: {e.WebErrorStatus}");
                 
+                // Detekce změny sítě - tiché obnovení
+                if (e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionAborted ||
+                    e.WebErrorStatus == CoreWebView2WebErrorStatus.Disconnected)
+                {
+                    Debug.WriteLine("Network change detected, attempting silent reload...");
+                    HandleNetworkChangeError();
+                    return;
+                }
+                
                 var errorMessage = e.WebErrorStatus switch
                 {
-                    CoreWebView2WebErrorStatus.ConnectionAborted => "Připojení bylo přerušeno",
-                    CoreWebView2WebErrorStatus.Disconnected => "Žádné připojení k internetu",
                     CoreWebView2WebErrorStatus.HostNameNotResolved => "Nelze najít server launcher.cmi.cz",
                     CoreWebView2WebErrorStatus.Timeout => "Vypršel časový limit připojení",
                     CoreWebView2WebErrorStatus.ServerUnreachable => "Server není dostupný",
@@ -680,14 +693,23 @@ WebView2 Runtime Check:
                     _ => $"Chyba při načítání stránky: {e.WebErrorStatus}"
                 };
                 
-                ShowRetryOverlay($"{errorMessage}.", 0);
-                ScheduleAutoRetry();
+                navigationRetries++;
+                if (navigationRetries <= MaxRetries)
+                {
+                    ShowRetryOverlay($"{errorMessage}.", 0);
+                    ScheduleAutoRetry();
+                }
+                else
+                {
+                    ShowErrorInWelcomeScreen($"{errorMessage}. Zkontrolujte připojení k internetu.");
+                }
             }
             else
             {
                 // Reset retry counter při úspěšné navigaci
                 navigationRetries = 0;
                 backoffIndex = 0;
+                networkChangeRetries = 0;
                 retryCts?.Cancel();
                 retryCts = null;
                 HideRetryOverlay();
@@ -1180,6 +1202,243 @@ WebView2 Runtime Check:
             }
             
             certificateDialogTcs?.SetResult(result);
+        }
+        
+        private void HandleNetworkChangeError()
+        {
+            if (networkChangeRetries >= MaxNetworkChangeRetries)
+            {
+                Debug.WriteLine($"Max network change retries ({MaxNetworkChangeRetries}) reached");
+                ShowErrorInWelcomeScreen(
+                    "Detekována změna sítě. Zkontrolujte prosím síťové připojení a klikněte na tlačítko níže."
+                );
+                networkChangeRetries = 0;
+                return;
+            }
+            
+            networkChangeRetries++;
+            Debug.WriteLine($"Network change retry attempt {networkChangeRetries}/{MaxNetworkChangeRetries}");
+            
+            // Krátká pauza před reload (500ms, 1s, 2s)
+            int[] delays = new[] { 500, 1000, 2000 };
+            int delay = delays[Math.Min(networkChangeRetries - 1, delays.Length - 1)];
+            
+            // Naplánovat reload
+            networkRetryTimer?.Dispose();
+            networkRetryTimer = new System.Threading.Timer(_ =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        Debug.WriteLine("Executing silent reload after network change");
+                        webView?.CoreWebView2?.Reload();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error during silent reload: {ex.Message}");
+                        ShowErrorInWelcomeScreen("Chyba při obnovování připojení.");
+                    }
+                });
+            }, null, delay, Timeout.Infinite);
+        }
+        
+        private void ShowErrorInWelcomeScreen(string errorMessage)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    // Zobrazit welcome screen
+                    if (WelcomeScreen != null)
+                    {
+                        WelcomeScreen.Visibility = Visibility.Visible;
+                    }
+                    
+                    // Změnit text na chybovou zprávu
+                    if (WelcomeMessage != null)
+                    {
+                        WelcomeMessage.Text = errorMessage;
+                        WelcomeMessage.Foreground = new SolidColorBrush(Color.FromRgb(211, 47, 47)); // Červená barva
+                    }
+                    
+                    // Skrýt progress bar
+                    if (ProgressBar != null)
+                    {
+                        ProgressBar.Visibility = Visibility.Collapsed;
+                    }
+                    if (ProgressBackground != null)
+                    {
+                        ProgressBackground.Visibility = Visibility.Collapsed;
+                    }
+                    
+                    // Zastavit animaci
+                    progressAnimation?.Stop();
+                    
+                    // Zobrazit nebo vytvořit Retry tlačítko
+                    ShowRetryButton();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error showing error in welcome screen: {ex.Message}");
+                }
+            });
+        }
+        
+        private void ShowRetryButton()
+        {
+            try
+            {
+                // Najít StackPanel v welcome screen
+                if (WelcomeScreen == null) return;
+                
+                var border = WelcomeScreen.FindName("WelcomeBorder") as Border;
+                var welcomePanel = border?.Child as StackPanel;
+                
+                if (welcomePanel == null)
+                {
+                    // Fallback - hledat přímo v children
+                    foreach (var child in LogicalTreeHelper.GetChildren(WelcomeScreen))
+                    {
+                        if (child is Grid grid)
+                        {
+                            foreach (var gridChild in LogicalTreeHelper.GetChildren(grid))
+                            {
+                                if (gridChild is Border b && b.Child is StackPanel sp)
+                                {
+                                    welcomePanel = sp;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (welcomePanel != null)
+                {
+                    // Najít existující button nebo vytvořit nový
+                    var existingButton = welcomePanel.Children
+                        .OfType<Button>()
+                        .FirstOrDefault(b => b.Name == "WelcomeRetryButton");
+                    
+                    if (existingButton == null)
+                    {
+                        var retryButton = new Button
+                        {
+                            Name = "WelcomeRetryButton",
+                            Content = "Zkusit znovu",
+                            Width = 160,
+                            Height = 40,
+                            Background = new SolidColorBrush(Color.FromRgb(33, 150, 243)), // Material Blue
+                            Foreground = Brushes.White,
+                            FontWeight = FontWeights.Bold,
+                            FontSize = 14,
+                            Margin = new Thickness(0, 20, 0, 0),
+                            Cursor = Cursors.Hand,
+                            HorizontalAlignment = HorizontalAlignment.Center
+                        };
+                        
+                        retryButton.Click += (s, e) =>
+                        {
+                            Debug.WriteLine("Retry button clicked from welcome screen");
+                            RetryConnection();
+                        };
+                        
+                        welcomePanel.Children.Add(retryButton);
+                    }
+                    else
+                    {
+                        existingButton.Visibility = Visibility.Visible;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error showing retry button: {ex.Message}");
+            }
+        }
+        
+        private void RetryConnection()
+        {
+            // Reset retry counters
+            navigationRetries = 0;
+            backoffIndex = 0;
+            networkChangeRetries = 0;
+            
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    // Obnovit původní stav welcome screen
+                    if (WelcomeMessage != null)
+                    {
+                        WelcomeMessage.Text = "Připojuji se k aplikačnímu portálu...";
+                        WelcomeMessage.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102)); // Původní šedá
+                    }
+                    
+                    // Zobrazit progress bar
+                    if (ProgressBar != null)
+                    {
+                        ProgressBar.Visibility = Visibility.Visible;
+                    }
+                    if (ProgressBackground != null)
+                    {
+                        ProgressBackground.Visibility = Visibility.Visible;
+                    }
+                    
+                    // Skrýt retry button
+                    var border = WelcomeScreen?.FindName("WelcomeBorder") as Border;
+                    var welcomePanel = border?.Child as StackPanel;
+                    
+                    if (welcomePanel == null)
+                    {
+                        // Fallback - hledat přímo v children
+                        foreach (var child in LogicalTreeHelper.GetChildren(WelcomeScreen))
+                        {
+                            if (child is Grid grid)
+                            {
+                                foreach (var gridChild in LogicalTreeHelper.GetChildren(grid))
+                                {
+                                    if (gridChild is Border b && b.Child is StackPanel sp)
+                                    {
+                                        welcomePanel = sp;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    var retryButton = welcomePanel?.Children
+                        .OfType<Button>()
+                        .FirstOrDefault(b => b.Name == "WelcomeRetryButton");
+                    
+                    if (retryButton != null)
+                    {
+                        retryButton.Visibility = Visibility.Collapsed;
+                    }
+                    
+                    // Spustit animaci
+                    StartWelcomeAnimation();
+                    
+                    // Reload stránky
+                    if (webView?.CoreWebView2 != null)
+                    {
+                        Debug.WriteLine("Reloading page after retry button click");
+                        webView.CoreWebView2.Reload();
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Navigating to LauncherUrl after retry button click");
+                        webView?.CoreWebView2?.Navigate(LauncherUrl);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error during retry: {ex.Message}");
+                    ShowErrorInWelcomeScreen("Chyba při pokusu o připojení.");
+                }
+            });
         }
     }
 }
