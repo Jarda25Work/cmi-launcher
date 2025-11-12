@@ -675,23 +675,33 @@ WebView2 Runtime Check:
             {
                 Debug.WriteLine($"Navigation failed: {e.WebErrorStatus}");
                 
-                // Detekce změny sítě - tiché obnovení
+                // Detekce všech connection errorů - tiché obnovení
+                // Všechny tyto chyby mohou být přechodné (změna sítě, VPN, atd.)
                 if (e.WebErrorStatus == CoreWebView2WebErrorStatus.ConnectionAborted ||
-                    e.WebErrorStatus == CoreWebView2WebErrorStatus.Disconnected)
+                    e.WebErrorStatus == CoreWebView2WebErrorStatus.Disconnected ||
+                    e.WebErrorStatus == CoreWebView2WebErrorStatus.Timeout ||
+                    e.WebErrorStatus == CoreWebView2WebErrorStatus.ServerUnreachable ||
+                    e.WebErrorStatus == CoreWebView2WebErrorStatus.CannotConnect ||
+                    e.WebErrorStatus == CoreWebView2WebErrorStatus.HostNameNotResolved)
                 {
-                    Debug.WriteLine("Network change detected, attempting silent reload...");
-                    HandleNetworkChangeError();
+                    var connErrorMessage = e.WebErrorStatus switch
+                    {
+                        CoreWebView2WebErrorStatus.ConnectionAborted => "Spojení přerušeno",
+                        CoreWebView2WebErrorStatus.Disconnected => "Odpojeno od sítě",
+                        CoreWebView2WebErrorStatus.Timeout => "Vypršel časový limit připojení",
+                        CoreWebView2WebErrorStatus.ServerUnreachable => "Server není dostupný",
+                        CoreWebView2WebErrorStatus.CannotConnect => "Nelze se připojit k serveru",
+                        CoreWebView2WebErrorStatus.HostNameNotResolved => "Nelze najít server launcher.cmi.cz",
+                        _ => "Chyba připojení"
+                    };
+                    
+                    Debug.WriteLine($"Connection error detected: {connErrorMessage}, attempting silent reload...");
+                    HandleNetworkChangeError(connErrorMessage);
                     return;
                 }
                 
-                var errorMessage = e.WebErrorStatus switch
-                {
-                    CoreWebView2WebErrorStatus.HostNameNotResolved => "Nelze najít server launcher.cmi.cz",
-                    CoreWebView2WebErrorStatus.Timeout => "Vypršel časový limit připojení",
-                    CoreWebView2WebErrorStatus.ServerUnreachable => "Server není dostupný",
-                    CoreWebView2WebErrorStatus.CannotConnect => "Nelze se připojit k serveru",
-                    _ => $"Chyba při načítání stránky: {e.WebErrorStatus}"
-                };
+                // Ostatní chyby (neočekávané) - zobrazit rovnou chybu
+                var errorMessage = $"Chyba při načítání stránky: {e.WebErrorStatus}";
                 
                 navigationRetries++;
                 if (navigationRetries <= MaxRetries)
@@ -1204,20 +1214,20 @@ WebView2 Runtime Check:
             certificateDialogTcs?.SetResult(result);
         }
         
-        private void HandleNetworkChangeError()
+        private void HandleNetworkChangeError(string errorMessage)
         {
             if (networkChangeRetries >= MaxNetworkChangeRetries)
             {
                 Debug.WriteLine($"Max network change retries ({MaxNetworkChangeRetries}) reached");
                 ShowErrorInWelcomeScreen(
-                    "Detekována změna sítě. Zkontrolujte prosím síťové připojení a klikněte na tlačítko níže."
+                    $"{errorMessage}. Zkontrolujte prosím síťové připojení a klikněte na tlačítko níže."
                 );
                 networkChangeRetries = 0;
                 return;
             }
             
             networkChangeRetries++;
-            Debug.WriteLine($"Network change retry attempt {networkChangeRetries}/{MaxNetworkChangeRetries}");
+            Debug.WriteLine($"Network change retry attempt {networkChangeRetries}/{MaxNetworkChangeRetries} - {errorMessage}");
             
             // Krátká pauza před reload (500ms, 1s, 2s)
             int[] delays = new[] { 500, 1000, 2000 };
@@ -1231,13 +1241,13 @@ WebView2 Runtime Check:
                 {
                     try
                     {
-                        Debug.WriteLine("Executing silent reload after network change");
+                        Debug.WriteLine($"Executing silent reload after network change (attempt {networkChangeRetries})");
                         webView?.CoreWebView2?.Reload();
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error during silent reload: {ex.Message}");
-                        ShowErrorInWelcomeScreen("Chyba při obnovování připojení.");
+                        ShowErrorInWelcomeScreen($"{errorMessage}. Chyba při obnovování připojení.");
                     }
                 });
             }, null, delay, Timeout.Infinite);
