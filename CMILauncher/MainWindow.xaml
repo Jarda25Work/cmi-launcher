@@ -13,7 +13,8 @@
         <!-- Source je odstraněn - navigace se řídí z kódu po inicializaci CoreWebView2 -->
         <wv2:WebView2 x:Name="webView" 
                       DefaultBackgroundColor="Transparent" 
-                      Visibility="Visible" />
+                      Visibility="Visible"
+                      Panel.ZIndex="1" />
 
         <!-- Úvodní informační obrazovka -->
         <Grid x:Name="WelcomeScreen"
@@ -100,23 +101,102 @@
 
         <!-- Overlay pro výpadky připojení -->
         <Grid x:Name="RetryOverlay"
-              Background="#AA000000"
               Visibility="Collapsed"
-              Panel.ZIndex="500">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Border Grid.Row="1" Background="#222" Padding="24" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+              Panel.ZIndex="500"
+              IsHitTestVisible="True">
+            <!-- Background overlay to darken screen - does not capture clicks -->
+            <Rectangle Fill="#80000000" 
+                       IsHitTestVisible="False" />
+            
+            <!-- Dialog content with hit test enabled -->
+            <Border Background="White" 
+                    CornerRadius="10" 
+                    Padding="30" 
+                    MaxWidth="500"
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="True">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" Direction="315" ShadowDepth="5" Opacity="0.3"/>
+                </Border.Effect>
                 <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Icon -->
+                        <Grid Width="50" Height="50" Margin="0,0,15,0">
+                            <Ellipse Fill="#F44336" />
+                            <TextBlock Text="⚠" 
+                                       FontSize="28" 
+                                       Foreground="White" 
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                        
+                        <!-- Title -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Chyba připojení"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="#333"
+                                       Margin="0,0,0,5"/>
+                            <TextBlock Text="Nelze se připojit k serveru"
+                                       FontSize="13"
+                                       Foreground="#666"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Message -->
                     <TextBlock x:Name="RetryMessage"
-                               Text="Nelze se připojit k serveru. Zkouším to znovu..."
-                               Foreground="White"
-                               FontSize="16"
-                               Margin="0,0,0,12"
-                               TextAlignment="Center"/>
-                    <Button x:Name="RetryButton" Content="Zkusit znovu" Width="160" Click="RetryButton_Click"/>
+                               Text="Zkontrolujte prosím síťové připojení."
+                               FontSize="14"
+                               Foreground="#444"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,24"
+                               TextAlignment="Left"/>
+                    
+                    <!-- Button -->
+                    <Button x:Name="RetryButton" 
+                            Click="RetryButton_Click"
+                            HorizontalAlignment="Center"
+                            Padding="20,10"
+                            MinWidth="150">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#F44336"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="FontSize" Value="14"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="5"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#E53935"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter Property="Background" Value="#C62828"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Text="Zkusit znovu" />
+                    </Button>
                 </StackPanel>
             </Border>
         </Grid>

@@ -714,7 +714,8 @@ WebView2 Runtime Check:
                 }
                 else
                 {
-                    ShowErrorInWelcomeScreen($"{errorMessage}. Zkontrolujte připojení k internetu.");
+                    HideWelcomeScreenAsync(0);
+                    ShowRetryOverlay($"{errorMessage}. Zkontrolujte připojení k internetu.", 0);
                 }
             }
             else
@@ -783,6 +784,13 @@ WebView2 Runtime Check:
         {
             Dispatcher.Invoke(() =>
             {
+                // **KLÍČOVÉ: Skrýt WebView2 před zobrazením overlay (stejně jako u certificate dialogu)**
+                if (webView != null)
+                {
+                    webView.Visibility = Visibility.Collapsed;
+                    Debug.WriteLine("WebView2 skryto pro retry overlay");
+                }
+                
                 if (RetryOverlay != null)
                 {
                     RetryOverlay.Visibility = Visibility.Visible;
@@ -818,6 +826,13 @@ WebView2 Runtime Check:
             {
                 if (RetryOverlay != null)
                     RetryOverlay.Visibility = Visibility.Collapsed;
+                
+                // **KRITICKÉ: Obnovit WebView2 po skrytí retry overlay (stejně jako u certificate dialogu)**
+                if (webView != null)
+                {
+                    webView.Visibility = Visibility.Visible;
+                    Debug.WriteLine("WebView2 obnoven po retry overlay");
+                }
             });
         }
 
@@ -963,7 +978,7 @@ WebView2 Runtime Check:
                     Debug.WriteLine("ERROR: WelcomeScreen is null!");
                 }
                 
-                UpdateWelcomeMessage("Inicializuji WebView2 runtime...");
+                UpdateWelcomeMessage("Inicializuji...");
                 AnimateProgressBar();
                 Debug.WriteLine("=== WELCOME ANIMATION STARTED ===");
             }
@@ -1222,9 +1237,11 @@ WebView2 Runtime Check:
             if (networkChangeRetries >= MaxNetworkChangeRetries)
             {
                 Debug.WriteLine($"Max network change retries ({MaxNetworkChangeRetries}) reached");
-                ShowErrorInWelcomeScreen(
-                    $"{errorMessage}. Zkontrolujte prosím síťové připojení a klikněte na tlačítko níže."
-                );
+                
+                // Použít RetryOverlay místo Welcome screen
+                HideWelcomeScreenAsync(0); // Ihned skrýt welcome screen
+                ShowRetryOverlay($"{errorMessage}. Zkontrolujte prosím síťové připojení.", 0);
+                
                 networkChangeRetries = 0;
                 return;
             }
@@ -1250,208 +1267,11 @@ WebView2 Runtime Check:
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"Error during silent reload: {ex.Message}");
-                        ShowErrorInWelcomeScreen($"{errorMessage}. Chyba při obnovování připojení.");
+                        HideWelcomeScreenAsync(0);
+                        ShowRetryOverlay($"{errorMessage}. Chyba při obnovování připojení.", 0);
                     }
                 });
             }, null, delay, Timeout.Infinite);
-        }
-        
-        private void ShowErrorInWelcomeScreen(string errorMessage)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    // Zobrazit welcome screen
-                    if (WelcomeScreen != null)
-                    {
-                        WelcomeScreen.Visibility = Visibility.Visible;
-                    }
-                    
-                    // Změnit text na chybovou zprávu
-                    if (WelcomeMessage != null)
-                    {
-                        WelcomeMessage.Text = errorMessage;
-                        WelcomeMessage.Foreground = new SolidColorBrush(Color.FromRgb(211, 47, 47)); // Červená barva
-                    }
-                    
-                    // Skrýt progress bar
-                    if (ProgressBar != null)
-                    {
-                        ProgressBar.Visibility = Visibility.Collapsed;
-                    }
-                    if (ProgressBackground != null)
-                    {
-                        ProgressBackground.Visibility = Visibility.Collapsed;
-                    }
-                    
-                    // Zastavit animaci
-                    progressAnimation?.Stop();
-                    
-                    // Zobrazit nebo vytvořit Retry tlačítko
-                    ShowRetryButton();
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error showing error in welcome screen: {ex.Message}");
-                }
-            });
-        }
-        
-        private void ShowRetryButton()
-        {
-            try
-            {
-                // Najít StackPanel v welcome screen
-                if (WelcomeScreen == null) return;
-                
-                var border = WelcomeScreen.FindName("WelcomeBorder") as Border;
-                var welcomePanel = border?.Child as StackPanel;
-                
-                if (welcomePanel == null)
-                {
-                    // Fallback - hledat přímo v children
-                    foreach (var child in LogicalTreeHelper.GetChildren(WelcomeScreen))
-                    {
-                        if (child is Grid grid)
-                        {
-                            foreach (var gridChild in LogicalTreeHelper.GetChildren(grid))
-                            {
-                                if (gridChild is Border b && b.Child is StackPanel sp)
-                                {
-                                    welcomePanel = sp;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if (welcomePanel != null)
-                {
-                    // Najít existující button nebo vytvořit nový
-                    var existingButton = welcomePanel.Children
-                        .OfType<Button>()
-                        .FirstOrDefault(b => b.Name == "WelcomeRetryButton");
-                    
-                    if (existingButton == null)
-                    {
-                        var retryButton = new Button
-                        {
-                            Name = "WelcomeRetryButton",
-                            Content = "Zkusit znovu",
-                            Width = 160,
-                            Height = 40,
-                            Background = new SolidColorBrush(Color.FromRgb(33, 150, 243)), // Material Blue
-                            Foreground = Brushes.White,
-                            FontWeight = FontWeights.Bold,
-                            FontSize = 14,
-                            Margin = new Thickness(0, 20, 0, 0),
-                            Cursor = Cursors.Hand,
-                            HorizontalAlignment = HorizontalAlignment.Center
-                        };
-                        
-                        retryButton.Click += (s, e) =>
-                        {
-                            Debug.WriteLine("Retry button clicked from welcome screen");
-                            RetryConnection();
-                        };
-                        
-                        welcomePanel.Children.Add(retryButton);
-                    }
-                    else
-                    {
-                        existingButton.Visibility = Visibility.Visible;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error showing retry button: {ex.Message}");
-            }
-        }
-        
-        private void RetryConnection()
-        {
-            // Reset retry counters
-            navigationRetries = 0;
-            backoffIndex = 0;
-            networkChangeRetries = 0;
-            
-            Dispatcher.Invoke(() =>
-            {
-                try
-                {
-                    // Obnovit původní stav welcome screen
-                    if (WelcomeMessage != null)
-                    {
-                        WelcomeMessage.Text = "Připojuji se k aplikačnímu portálu...";
-                        WelcomeMessage.Foreground = new SolidColorBrush(Color.FromRgb(102, 102, 102)); // Původní šedá
-                    }
-                    
-                    // Zobrazit progress bar
-                    if (ProgressBar != null)
-                    {
-                        ProgressBar.Visibility = Visibility.Visible;
-                    }
-                    if (ProgressBackground != null)
-                    {
-                        ProgressBackground.Visibility = Visibility.Visible;
-                    }
-                    
-                    // Skrýt retry button
-                    var border = WelcomeScreen?.FindName("WelcomeBorder") as Border;
-                    var welcomePanel = border?.Child as StackPanel;
-                    
-                    if (welcomePanel == null)
-                    {
-                        // Fallback - hledat přímo v children
-                        foreach (var child in LogicalTreeHelper.GetChildren(WelcomeScreen))
-                        {
-                            if (child is Grid grid)
-                            {
-                                foreach (var gridChild in LogicalTreeHelper.GetChildren(grid))
-                                {
-                                    if (gridChild is Border b && b.Child is StackPanel sp)
-                                    {
-                                        welcomePanel = sp;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    var retryButton = welcomePanel?.Children
-                        .OfType<Button>()
-                        .FirstOrDefault(b => b.Name == "WelcomeRetryButton");
-                    
-                    if (retryButton != null)
-                    {
-                        retryButton.Visibility = Visibility.Collapsed;
-                    }
-                    
-                    // Spustit animaci
-                    StartWelcomeAnimation();
-                    
-                    // Reload stránky
-                    if (webView?.CoreWebView2 != null)
-                    {
-                        Debug.WriteLine("Reloading page after retry button click");
-                        webView.CoreWebView2.Reload();
-                    }
-                    else
-                    {
-                        Debug.WriteLine("Navigating to LauncherUrl after retry button click");
-                        webView?.CoreWebView2?.Navigate(LauncherUrl);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error during retry: {ex.Message}");
-                    ShowErrorInWelcomeScreen("Chyba při pokusu o připojení.");
-                }
-            });
         }
     }
 }
