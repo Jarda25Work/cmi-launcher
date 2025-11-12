@@ -214,6 +214,9 @@ namespace CMILauncher
                 // Povolit DevTools pouze pro programové otevření (blokneme F12)
                 webView.CoreWebView2.Settings.AreDevToolsEnabled = true; // F12 zablokujeme ručně, okno otevře Ctrl+D
                 
+                // KRITICKÉ: Zakázat Chromium error pages - chceme vlastní handling
+                webView.CoreWebView2.Settings.IsBuiltInErrorPageEnabled = false;
+                
                 // Vytvořit adresář pro aplikace, pokud neexistuje
                 Directory.CreateDirectory(BaseDir);
                 
