@@ -291,6 +291,7 @@ Filename: "{code:GetWebView2PathVar}"; Parameters: "/silent /install"; Descripti
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\CMILauncher.exe"; IconFilename: "{app}\CMILauncher.exe"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\CMILauncher.exe"; IconFilename: "{app}\CMILauncher.exe"
 
 [UninstallRun]
 ; Tichá odinstalace MSI - vyžaduje ProductCode (nyní používáme soubor, raději vynecháme nebo doplníme ručně po zjištění GUID)

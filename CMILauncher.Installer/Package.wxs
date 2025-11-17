@@ -26,6 +26,7 @@
       <ComponentGroupRef Id="RuntimeFiles" />
       <ComponentGroupRef Id="LibraryFiles" />
       <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
       <ComponentRef Id="ProgramMenuFolder" />
     </Feature>
 
@@ -44,6 +45,8 @@
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ApplicationProgramsFolder" Name="CMI Launcher" />
     </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
 
     <ComponentGroup Id="ApplicationFiles" Directory="APPLICATIONFOLDER">
       <Component Id="MainExecutable" Bitness="always64">
@@ -116,6 +119,21 @@
       <RegistryValue Root="HKCU" 
                     Key="Software\CMI\CMILauncher" 
                     Name="installed" 
+                    Type="integer" 
+                    Value="1" 
+                    KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Bitness="always64">
+      <Shortcut Id="ApplicationDesktopShortcut"
+                Name="CMI Launcher"
+                Description="Launcher aplikaci pro Ceske metrologie institut"
+                Target="[APPLICATIONFOLDER]CMILauncher.exe"
+                WorkingDirectory="APPLICATIONFOLDER"
+                Icon="AppIcon" />
+      <RegistryValue Root="HKCU" 
+                    Key="Software\CMI\CMILauncher" 
+                    Name="desktop" 
                     Type="integer" 
                     Value="1" 
                     KeyPath="yes" />
