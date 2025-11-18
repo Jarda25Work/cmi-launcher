@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <AssemblyTitle>ČMI Launcher</AssemblyTitle>
-    <AssemblyDescription>Launcher aplikací pro České metrologie institut</AssemblyDescription>
+    <AssemblyDescription>ČMI Launcher aplikací</AssemblyDescription>
     <AssemblyVersion>1.0.0.4</AssemblyVersion>
     <FileVersion>1.0.0.4</FileVersion>
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>

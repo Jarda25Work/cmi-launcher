@@ -72,7 +72,7 @@
                                        FontWeight="SemiBold"
                                        Foreground="#1976D2"
                                        Margin="0,0,0,8"/>
-                            <TextBlock Text="Při prvním spuštění budete požádáni o zadání PIN kódu k vašemu certifikátu. Toto je bezpečnostní opatření pro ověření vaší identity."
+                            <TextBlock Text="Při spuštění budete požádáni o zadání PIN kódu k vašemu certifikátu. Toto je bezpečnostní opatření pro ověření vaší identity."
                                        FontSize="12"
                                        Foreground="#424242"
                                        TextWrapping="Wrap"
